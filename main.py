@@ -1475,7 +1475,7 @@ if smr_ok == "ok":
 	index=0
 	now=index
 	num=0
-	FRAME_STEP=25
+	FRAME_STEP=15
 	end_time=time.time()
 	pre_action=0
 	end=False
@@ -1538,10 +1538,10 @@ if smr_ok == "ok":
 			end = False
 
 
-		if plus.KeyPress(hg.KeyDown):
-			print("munual action")
-			action=2
-			brain.setPerception(new_state, action, action_judge(Old, New), end)
+		# if plus.KeyPress(hg.KeyDown):
+		# 	print("munual action")
+		# 	action=2
+		# 	brain.setPerception(new_state, action, action_judge(Old, New), end)
 
 		if game and index%FRAME_STEP==0:		#每个关键帧
 			# step+=1

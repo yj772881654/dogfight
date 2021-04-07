@@ -127,6 +127,9 @@ def action_judge(state1:AircraftState,state2:AircraftState):
     #     r_health=state1.health2-state2.health2 #命中奖励
     # if state2.health-state1.health<0:
     #     r_health=state2.health-state1.health  #被命中惩罚
+    if state1.height>5000:
+        return -1
+
     if state1.height>1500:
         print("reward:",cal_r(state2)-cal_r(state1))
         return cal_r(state2)-cal_r(state1)

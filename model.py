@@ -11,13 +11,13 @@ from collections import deque
 from math import cos,sin,sqrt,pow,acos,pi
 import torch.nn.functional as F
 ACTIONS = 7 # number of valid actions
-GAMMA = 0.99 # decay rate of past observations
+GAMMA = 0.9 # decay rate of past observations
 OBSERVE = 50. # timesteps to observe before training
 EXPLORE = 2000000. # frames over which to anneal epsilon
 FINAL_EPSILON = 0.0001 # final value of epsilon
 INITIAL_EPSILON = 0.1 # starting value of epsilon
 REPLAY_MEMORY = 50000 # number of previous transitions to remember
-BATCH_SIZE = 32 # size of minibatch
+BATCH_SIZE = 50 # size of minibatch
 FRAME_PER_ACTION = 1
 UPDATE_TIME = 10
 
@@ -144,7 +144,7 @@ class BrainDQNMain(object):
 
         QValue = self.Q_netT(currentState)[0]
         # print(currentState)
-        print(self.Q_net(currentState))
+        # print(self.Q_net(currentState))
         # print(self.Q_netT(currentState))
         action = np.zeros(self.actions)
         if self.timeStep % FRAME_PER_ACTION == 0:
