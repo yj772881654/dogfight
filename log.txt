@@ -1,0 +1,3 @@
+timestep 6080
+epsilon 0.2159781059998716
+episode 2692

@@ -64,30 +64,36 @@ class AircraftState:
         self.rollAtd=list[6]
         self.yaw=list[7]
         self.target=list[8]
-        self.positionX2 = list[9]
-        self.positionY2= list[10]
-        self.height2 = list[11]
-        self.speed2 = list[12]
-        self.health2 = list[13]
-        self.pinchAtd2 = list[14]
-        self.rollAtd2 = list[15]
-        self.yaw2=list[16]
-        self.target2 = list[17]
+        self.v_x=list[9]
+        self.v_z=list[10]
+        self.v_y=list[11]
+        self.positionX2 = list[12]
+        self.positionY2= list[13]
+        self.height2 = list[14]
+        self.speed2 = list[15]
+        self.health2 = list[16]
+        self.pinchAtd2 = list[17]
+        self.rollAtd2 = list[18]
+        self.yaw2=list[19]
+        self.target2 = list[20]
+        self.v_x2=list[21]
+        self.v_z2=list[22]
+        self.v_y2=list[23]
 
 def cal_r_height(state:AircraftState):
     #高度奖励
     delta_H=state.height-state.height2
-    if state.height<300:                    #飞行高度低于300惩罚
-        r_H_self=(state.height)/100-3
-    else:
-        r_H_self=0
+    # if state.height<300:                    #飞行高度低于300惩罚
+    #     r_H_self=(state.height)/100-3
+    # else:
+    #     r_H_self=0
 
     if delta_H<2000:                        #敌人高度奖励
-        r_H=(delta_H+1000)/1000-1
+        r_H=(delta_H+1000)/1000
     else:
-        r_H=(2000-delta_H)/1000+2
+        r_H=(2000-delta_H)/1000
     # print("r_H",r_H," r_H_self",r_H_self)
-    return r_H+r_H_self
+    return r_H
 
 def cal_r_v(state:AircraftState):
     r_v=(state.speed-state.speed2)/100
@@ -99,12 +105,19 @@ def cal_r_v(state:AircraftState):
     return r_v+r_v_self
 def angle_trans(x):
     return x/180*pi
+def cal_dis(state:AircraftState):
+    e=[state.v_x/(state.speed/3.6),state.v_z/(state.speed/3.6),state.v_y/(state.speed/3.6)]
+    d=[state.positionX2-state.positionX,state.positionY2-state.positionY,state.height2-state.height]
+    e_d=e[0]*d[0]+e[1]*d[1]+e[2]*d[2]
+    return e_d
 def cal_r_angle(state:AircraftState):
     v_r=[cos(state.yaw)*cos(state.pinchAtd),sin(state.yaw)*cos(state.pinchAtd),sin(state.pinchAtd)]
     v_b=[cos(state.yaw2)*cos(state.pinchAtd2),sin(state.yaw2)*cos(state.pinchAtd2),sin(state.pinchAtd2)]
-    d=[state.positionX-state.positionX2,state.positionY-state.positionY2,state.height-state.height2]
+    # d=[state.positionX-state.positionX2,state.positionY-state.positionY2,state.height-state.height2] #自己的角度
+    d = [state.positionX2 - state.positionX, state.positionY2 - state.positionY, state.height2 - state.height]  # 敌人的角度
     #d位置的顺序决定谁的角度
     D=sqrt(pow(state.positionX-state.positionX2,2)+pow(state.positionY-state.positionY2,2)+pow(state.height-state.height2,2))
+
     AA=0
     ATA=0
     if D!=0:
@@ -112,34 +125,25 @@ def cal_r_angle(state:AircraftState):
         ATA=acos((v_b[0]*d[0]+v_b[1]*d[1]+v_b[2]*d[2])/D)
     return 10-10*(AA+ATA)/pi
 def cal_launch_r(state:AircraftState):
-    if state.height<1000:
-        return state.height/50
-    else:
-        return state.speed/700+state.height/200
-def cal_r(state:AircraftState):
-
-    return cal_r_angle(state)+cal_r_v(state)+cal_r_height(state)
-    # return cal_r_v(state)
+    return state.height/20
 def action_judge(state1:AircraftState,state2:AircraftState):
-    #fire
-    # r_health=0
-    # if state2.health2-state1.health2<0:
-    #     r_health=state1.health2-state2.health2 #命中奖励
-    # if state2.health-state1.health<0:
-    #     r_health=state2.health-state1.health  #被命中惩罚
+    # r_health=-(1-state1.health)
+    # print("r_health",r_health)
     if state1.height>5000:
         return -1
-
     if state1.height>1500:
-        print("reward:",cal_r(state2)-cal_r(state1))
-        return cal_r(state2)-cal_r(state1)
+        if sqrt(pow(state2.positionX-state2.positionX2,2)+pow(state2.positionY-state2.positionY2,2)+pow(state2.height-state2.height,2))>2500:
+            return (8000-sqrt(pow(state2.positionX-state2.positionX2,2)+pow(state2.positionY-state2.positionY2,2)+pow(state2.height-state2.height,2)))/2000
+        else:
+            # print(cal_dis(state2))
+            if cal_dis(state2)>0:
+                if cal_dis(state2)<500 :
+                    return 2
+                else:
+                    return (2500-cal_dis(state2))/1000
+            else:
+                return -(2500+cal_dis(state2))/1000
     else:
-        # print("new:",cal_launch_r(state2))
-        # print("old:",cal_launch_r(state1))
-        print("launch reward:",cal_launch_r(state2)-cal_launch_r(state1))
+        # print("launch reward:",cal_launch_r(state2)-cal_launch_r(state1))
         return cal_launch_r(state2)-cal_launch_r(state1)
-# new_state = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
-# new_state1=[2,3,4,5,8,6,9,9,5,5,5,5,5,5,5,5,5,5,5,5,5,5]
-# new=AircraftState(new_state)
-# new1=AircraftState(new_state1)
-# print(action_judge(new1,new))
+

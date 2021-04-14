@@ -10,19 +10,20 @@ import numpy as np
 from collections import deque
 from math import cos,sin,sqrt,pow,acos,pi
 import torch.nn.functional as F
+import math
 ACTIONS = 7 # number of valid actions
 GAMMA = 0.9 # decay rate of past observations
-OBSERVE = 50. # timesteps to observe before training
-EXPLORE = 2000000. # frames over which to anneal epsilon
+OBSERVE = 50 # timesteps to observe before training
+EXPLORE = 100000. # frames over which to anneal epsilon
 FINAL_EPSILON = 0.0001 # final value of epsilon
 INITIAL_EPSILON = 0.1 # starting value of epsilon
-REPLAY_MEMORY = 50000 # number of previous transitions to remember
+REPLAY_MEMORY = 8000 # number of previous transitions to remember
 BATCH_SIZE = 50 # size of minibatch
 FRAME_PER_ACTION = 1
-UPDATE_TIME = 10
+UPDATE_TIME = 40
 
 class FCN(nn.Module):
-    def __init__(self, n_states=18, n_actions=7):
+    def __init__(self, n_states=24, n_actions=7):
         """ 初始化q网络，为全连接网络
             n_states: 输入的feature即环境的state数目
             n_actions: 输出的action总个数
@@ -42,16 +43,30 @@ class BrainDQNMain(object):
     def save(self):
         print("save model param")
         torch.save(self.Q_net.state_dict(), 'params3.pth')
+        with open("log.txt","w") as f:
+            f.writelines("timestep {}\n".format(self.timeStep))
+            f.writelines("epsilon {}\n".format(self.epsilon))
+            f.writelines("episode {}\n".format(self.episode))
 
     def load(self):
         if os.path.exists("params3.pth"):
             print("load model param")
             self.Q_net.load_state_dict(torch.load('params3.pth'))
             self.Q_netT.load_state_dict(torch.load('params3.pth'))
+        if os.path.exists("log.txt"):
+            with open("log.txt") as f:
+                str=f.readline()
+                self.timeStep=int(str.split(" ")[1].strip())
+                print(self.timeStep,str.split(" ")[1].strip(),type(str.split(" ")[1].strip()))
+                str = f.readline()
+                self.epsilon = float(str.split(" ")[1].strip())
+                str=f.readline()
+                self.episode = int(str.split(" ")[1].strip())
 
     def __init__(self,actions):
         self.replayMemory = deque() # init some parameters
-        self.timeStep = 0
+        self.timeStep=0
+        self.episode=0
         self.epsilon = INITIAL_EPSILON
         self.actions = actions
         self.Q_net=FCN()
@@ -60,8 +75,9 @@ class BrainDQNMain(object):
         self.loss_func=nn.MSELoss()
         LR=5e-3
         self.optimizer = torch.optim.Adam(self.Q_net.parameters(), lr=LR)
-
-        self.currentState=np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+        self.reward_list=[]
+        self.current_step=0
+        self.currentState=np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
     def train(self): # Step 1: obtain random minibatch from replay memory
         minibatch = random.sample(self.replayMemory, BATCH_SIZE)
         state_batch = [data[0] for data in minibatch]
@@ -114,8 +130,15 @@ class BrainDQNMain(object):
         if self.timeStep % UPDATE_TIME == 0:
             self.Q_netT.load_state_dict(self.Q_net.state_dict())
             self.save()
-
     def setPerception(self,nextObservation,action,reward,terminal): #print(nextObservation.shape)
+        if terminal:
+
+            self.reward_list=[]
+            self.current_step=0
+            print("")
+        else:
+            self.current_step+=1
+            self.reward_list.append(reward)
         newState = np.array(nextObservation)
         action_onehot = np.zeros(self.actions)
         # print(action_onehot.shape)
@@ -126,7 +149,8 @@ class BrainDQNMain(object):
             self.replayMemory.popleft()
         if self.timeStep > OBSERVE: # Train the network
             self.train()
-
+        if terminal==True:
+            self.episode+=1
         # print info
         state = ""
         if self.timeStep <= OBSERVE:
@@ -135,9 +159,15 @@ class BrainDQNMain(object):
             state = "explore"
         else:
             state = "train"
-        print ("TIMESTEP", self.timeStep, "/ STATE", state, "/ EPSILON", self.epsilon)
+        if len(self.reward_list)!=0:
+            reward_avg=sum(self.reward_list)/len(self.reward_list)
+        else:
+            reward_avg=0
+        # print ("EPISODE",self.episode,"/TIMESTEP", self.timeStep, "/ STATE", state, "/ EPSILON", self.epsilon)
+        print("\rEPISODE：{}||TIMESTEP：{}||STATE：{}||EPSILON：{}||REWARD_avg：{}||current_step:{}||current_reward:{}".format(self.episode,self.timeStep,state,self.epsilon,reward_avg,self.current_step,reward),end="")
         self.currentState = newState
         self.timeStep += 1
+
     def getAction(self):
         currentState = torch.from_numpy(self.currentState).reshape(1,-1)
         currentState=currentState.float()
@@ -150,11 +180,11 @@ class BrainDQNMain(object):
         if self.timeStep % FRAME_PER_ACTION == 0:
             if random.random() <= self.epsilon:
                 action_index = random.randrange(self.actions)
-                print("choose random action " + str(action_index))
+                # print("\rchoose random action " + str(action_index),end="")
                 action[action_index] = 1
             else:
                 action_index = np.argmax(QValue.detach().numpy())
-                print("choose qnet value action " + str(action_index))
+                # print("\rchoose qnet value action " + str(action_index),end="")
                 action[action_index] = 1
         else:
             action[0] = 1  # do nothing

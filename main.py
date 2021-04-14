@@ -1076,7 +1076,7 @@ def init_start_phase():
 	# Main.p2_aircraft.reset(hg.Vector3(uniform(10000, -10000), uniform(1000, 7000), uniform(10000, -10000)),
 	# 					   hg.Vector3(0, radians(uniform(-180, 180)), 0))
 	Main.p2_aircraft.reset(hg.Vector3(9500, 6000, 5000),
-						   hg.Vector3(0, radians(uniform(-180, 180)), 0))
+						   hg.Vector3(0, 0, 0))
 	Main.p2_aircraft.set_thrust_level(1)
 
 	Main.p1_sfx.reset()
@@ -1210,7 +1210,8 @@ def start_phase(plus, delta_t):
 		# if CALL_END2==True:
 		# 	return init_main_phase()
 
-		print("eposide start")
+		# print("eposide start")
+
 		return init_main_phase()
 
 	# rendering:
@@ -1475,15 +1476,16 @@ if smr_ok == "ok":
 	index=0
 	now=index
 	num=0
-	FRAME_STEP=15
+	FRAME_STEP=15/2
 	end_time=time.time()
 	pre_action=0
 	end=False
 	flag=1
 	brain = BrainDQNMain(7)
 	step=0
+	win=0
 	while not plus.KeyDown(hg.KeyEscape) and not plus.IsAppEnded():
-		delta_t = plus.UpdateClock()
+		delta_t = plus.UpdateClock()*2
 		dts = hg.time_to_sec_f(delta_t)
 
 		index+=1
@@ -1495,21 +1497,24 @@ if smr_ok == "ok":
 			game=False
 		if pregame==False and game==True:  #初始化STATE
 			step=0
-			pre_state=[Main.p1_aircraft.ground_ray_cast_pos.x,Main.p1_aircraft.ground_ray_cast_pos.z,
-										  Main.p1_aircraft.ground_ray_cast_pos.y,Main.p1_aircraft.get_linear_speed() * 3.6,
-										  Main.p1_aircraft.health_level,
-										  angle_trans(Main.p1_aircraft.pitch_attitude),
-				 					      angle_trans(Main.p1_aircraft.roll_attitude),
-										  angle_trans(cal_yaw(Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z)),
-										  Main.p1_aircraft.target_lock_t,
-										  Main.p2_aircraft.ground_ray_cast_pos.x, Main.p2_aircraft.ground_ray_cast_pos.z,
-										  Main.p2_aircraft.ground_ray_cast_pos.y, Main.p2_aircraft.get_linear_speed() * 3.6,
-										  Main.p2_aircraft.health_level,
-										  angle_trans(Main.p2_aircraft.pitch_attitude),
-										  angle_trans(Main.p2_aircraft.roll_attitude),
-										  angle_trans(cal_yaw(Main.p2_aircraft.v_move.x, Main.p2_aircraft.v_move.z)),
-										  Main.p2_aircraft.target_lock_t]
-		if (Main.p1_aircraft.wreck or Main.p2_aircraft.wreck) and flag==1:  #结束STATE
+			pre_state=[Main.p1_aircraft.ground_ray_cast_pos.x, Main.p1_aircraft.ground_ray_cast_pos.z,
+						 Main.p1_aircraft.ground_ray_cast_pos.y, Main.p1_aircraft.get_linear_speed() * 3.6,
+						 Main.p1_aircraft.health_level,
+						 angle_trans(Main.p1_aircraft.pitch_attitude),
+						 angle_trans(Main.p1_aircraft.roll_attitude),
+						 angle_trans(cal_yaw(Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z)),
+						 Main.p1_aircraft.target_lock_t,
+						 Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z, Main.p1_aircraft.v_move.y,
+						 Main.p2_aircraft.ground_ray_cast_pos.x, Main.p2_aircraft.ground_ray_cast_pos.z,
+						 Main.p2_aircraft.ground_ray_cast_pos.y, Main.p2_aircraft.get_linear_speed() * 3.6,
+						 Main.p2_aircraft.health_level,
+						 angle_trans(Main.p2_aircraft.pitch_attitude),
+						 angle_trans(Main.p2_aircraft.roll_attitude),
+						 angle_trans(cal_yaw(Main.p2_aircraft.v_move.x, Main.p2_aircraft.v_move.z)),
+						 Main.p2_aircraft.target_lock_t,
+						 Main.p2_aircraft.v_move.x,Main.p2_aircraft.v_move.z,Main.p2_aircraft.v_move.y]
+			brain.currentState=np.array(pre_state)
+		if (Main.p1_aircraft.wreck or Main.p2_aircraft.wreck or Main.p1_aircraft.health_level!=1 or Main.p2_aircraft.health_level!=1) and flag==1:  #结束STATE
 			end = True
 			flag=0
 			new_state = [Main.p1_aircraft.ground_ray_cast_pos.x, Main.p1_aircraft.ground_ray_cast_pos.z,
@@ -1519,58 +1524,77 @@ if smr_ok == "ok":
 						 angle_trans(Main.p1_aircraft.roll_attitude),
 						 angle_trans(cal_yaw(Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z)),
 						 Main.p1_aircraft.target_lock_t,
+						 Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z, Main.p1_aircraft.v_move.y,
 						 Main.p2_aircraft.ground_ray_cast_pos.x, Main.p2_aircraft.ground_ray_cast_pos.z,
 						 Main.p2_aircraft.ground_ray_cast_pos.y, Main.p2_aircraft.get_linear_speed() * 3.6,
 						 Main.p2_aircraft.health_level,
 						 angle_trans(Main.p2_aircraft.pitch_attitude),
 						 angle_trans(Main.p2_aircraft.roll_attitude),
 						 angle_trans(cal_yaw(Main.p2_aircraft.v_move.x, Main.p2_aircraft.v_move.z)),
-						 Main.p2_aircraft.target_lock_t]
-			# print(pre_state)
-			# print(new_state)
-			# print(end)
-			# print(pre_action)
+						 Main.p2_aircraft.target_lock_t,
+						 Main.p2_aircraft.v_move.x,Main.p2_aircraft.v_move.z,Main.p2_aircraft.v_move.y]
 
 			New = AircraftState(new_state)
 			Old = AircraftState(pre_state)
 			brain.setPerception(new_state, pre_action, action_judge(Old, New), end)
+
+			Main.p1_aircraft.start_explosion()
 		else:
 			end = False
 
+		# if sqrt(pow(Main.p1_aircraft.ground_ray_cast_pos.x-Main.p2_aircraft.ground_ray_cast_pos.x,2)+
+		# 		pow(Main.p1_aircraft.ground_ray_cast_pos.y-Main.p2_aircraft.ground_ray_cast_pos.y,2)+
+		# 		pow(Main.p1_aircraft.ground_ray_cast_pos.z-Main.p2_aircraft.ground_ray_cast_pos.z,2))<2500 :
 
-		# if plus.KeyPress(hg.KeyDown):
-		# 	print("munual action")
-		# 	action=2
-		# 	brain.setPerception(new_state, action, action_judge(Old, New), end)
 
+#		如果超时
+		if step==350 :
+			new_state = [Main.p1_aircraft.ground_ray_cast_pos.x, Main.p1_aircraft.ground_ray_cast_pos.z,
+						 Main.p1_aircraft.ground_ray_cast_pos.y, Main.p1_aircraft.get_linear_speed() * 3.6,
+						 Main.p1_aircraft.health_level,
+						 angle_trans(Main.p1_aircraft.pitch_attitude),
+						 angle_trans(Main.p1_aircraft.roll_attitude),
+						 angle_trans(cal_yaw(Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z)),
+						 Main.p1_aircraft.target_lock_t,
+						 Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z, Main.p1_aircraft.v_move.y,
+						 Main.p2_aircraft.ground_ray_cast_pos.x, Main.p2_aircraft.ground_ray_cast_pos.z,
+						 Main.p2_aircraft.ground_ray_cast_pos.y, Main.p2_aircraft.get_linear_speed() * 3.6,
+						 Main.p2_aircraft.health_level,
+						 angle_trans(Main.p2_aircraft.pitch_attitude),
+						 angle_trans(Main.p2_aircraft.roll_attitude),
+						 angle_trans(cal_yaw(Main.p2_aircraft.v_move.x, Main.p2_aircraft.v_move.z)),
+						 Main.p2_aircraft.target_lock_t,
+						 Main.p2_aircraft.v_move.x, Main.p2_aircraft.v_move.z, Main.p2_aircraft.v_move.y]
+
+			New = AircraftState(new_state)
+			Old = AircraftState(pre_state)
+			brain.setPerception(new_state, pre_action, action_judge(Old, New), True)
+
+			Main.p1_aircraft.start_explosion()
+			step=0
 		if game and index%FRAME_STEP==0:		#每个关键帧
-			# step+=1
+			step+=1
 			# print(step)
-			new_state=[Main.p1_aircraft.ground_ray_cast_pos.x,Main.p1_aircraft.ground_ray_cast_pos.z,
-										  Main.p1_aircraft.ground_ray_cast_pos.y,Main.p1_aircraft.get_linear_speed() * 3.6,
-										  Main.p1_aircraft.health_level,
-										  angle_trans(Main.p1_aircraft.pitch_attitude),
-				 					      angle_trans(Main.p1_aircraft.roll_attitude),
-										  angle_trans(cal_yaw(Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z)),
-										  Main.p1_aircraft.target_lock_t,
-										  Main.p2_aircraft.ground_ray_cast_pos.x, Main.p2_aircraft.ground_ray_cast_pos.z,
-										  Main.p2_aircraft.ground_ray_cast_pos.y, Main.p2_aircraft.get_linear_speed() * 3.6,
-										  Main.p2_aircraft.health_level,
-										  angle_trans(Main.p2_aircraft.pitch_attitude),
-										  angle_trans(Main.p2_aircraft.roll_attitude),
-										  angle_trans(cal_yaw(Main.p2_aircraft.v_move.x, Main.p2_aircraft.v_move.z)),
-										  Main.p2_aircraft.target_lock_t]
+			new_state=[Main.p1_aircraft.ground_ray_cast_pos.x, Main.p1_aircraft.ground_ray_cast_pos.z,
+						 Main.p1_aircraft.ground_ray_cast_pos.y, Main.p1_aircraft.get_linear_speed() * 3.6,
+						 Main.p1_aircraft.health_level,
+						 angle_trans(Main.p1_aircraft.pitch_attitude),
+						 angle_trans(Main.p1_aircraft.roll_attitude),
+						 angle_trans(cal_yaw(Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z)),
+						 Main.p1_aircraft.target_lock_t,
+						 Main.p1_aircraft.v_move.x, Main.p1_aircraft.v_move.z, Main.p1_aircraft.v_move.y,
+						 Main.p2_aircraft.ground_ray_cast_pos.x, Main.p2_aircraft.ground_ray_cast_pos.z,
+						 Main.p2_aircraft.ground_ray_cast_pos.y, Main.p2_aircraft.get_linear_speed() * 3.6,
+						 Main.p2_aircraft.health_level,
+						 angle_trans(Main.p2_aircraft.pitch_attitude),
+						 angle_trans(Main.p2_aircraft.roll_attitude),
+						 angle_trans(cal_yaw(Main.p2_aircraft.v_move.x, Main.p2_aircraft.v_move.z)),
+						 Main.p2_aircraft.target_lock_t,
+						 Main.p2_aircraft.v_move.x,Main.p2_aircraft.v_move.z,Main.p2_aircraft.v_move.y]
 			New=AircraftState(new_state)
 			Old=AircraftState(pre_state)
 
-			# print(pre_state)
-			# print(new_state)
-			# print(end)
-			# print(pre_action)
 
-			# num = random.randint(0, 8)   #take action
-			# action_judge(Old, New)
-			# print(action_judge(Old,New))
 
 			brain.setPerception(new_state, pre_action, action_judge(Old, New), end)
 			action = brain.getAction()
